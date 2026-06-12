@@ -34,6 +34,7 @@ public static class Loc
         ["TrayTip"] = ("HDR Screenshot Tool", "HDR 截图工具"),
         ["SaveFolder"] = ("Save to folder", "保存到文件夹"),
         ["Browse"] = ("Browse...", "浏览..."),
+        ["Open"] = ("Open", "打开"),
         ["SaveToFile"] = ("Save to file", "保存到文件"),
         ["CopyToClipboard"] = ("Copy to clipboard", "复制到剪贴板"),
     };

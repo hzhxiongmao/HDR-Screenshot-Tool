@@ -99,6 +99,7 @@ public partial class MainWindow : Window
         LblHotkeyHint.Text = Loc.Get("HotkeyHint");
         LblSaveFolder.Text = Loc.Get("SaveFolder");
         BtnBrowse.Content = Loc.Get("Browse");
+        BtnOpen.Content = Loc.Get("Open");
         ChkSaveToFile.Content = Loc.Get("SaveToFile");
         ChkCopyToClipboard.Content = Loc.Get("CopyToClipboard");
         if (!_waitingForHotkey) TxtHotkey.Text = _settings.Hotkey;
@@ -262,6 +263,13 @@ public partial class MainWindow : Window
         public IntPtr lpfn;
         public IntPtr lParam;
         public int iImage;
+    }
+
+    private void BtnOpen_Click(object sender, RoutedEventArgs e)
+    {
+        var path = GetSaveFolder();
+        Directory.CreateDirectory(path);
+        System.Diagnostics.Process.Start("explorer.exe", $"\"{path}\"");
     }
 
     private void TxtSaveFolder_LostFocus(object sender, RoutedEventArgs e)
