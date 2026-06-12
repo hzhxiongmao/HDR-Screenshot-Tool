@@ -11,6 +11,7 @@ public class AppSettings
     public double Gamma { get; set; } = 1.0;
     public string Hotkey { get; set; } = "Ctrl+Shift+S";
     public bool StartWithWindows { get; set; } = false;
+    public string Language { get; set; } = "en";
 
     private static readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

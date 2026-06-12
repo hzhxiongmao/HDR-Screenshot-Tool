@@ -25,7 +25,7 @@ public partial class MainWindow : Window
 
     private const int WM_HOTKEY = 0x0312, WM_TRAY = 0x8000;
     private const int MOD_ALT = 0x0001, MOD_CTRL = 0x0002, MOD_SHIFT = 0x0004, MOD_WIN = 0x0008;
-    private const int NIM_ADD = 0, NIM_DELETE = 2, NIF_ICON = 2, NIF_MESSAGE = 1, NIF_TIP = 4;
+    private const int NIM_ADD = 0, NIM_DELETE = 2, NIF_ICON = 2, NIF_MESSAGE = 1, NIF_TIP = 4, NIM_MODIFY = 1;
     private const int WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205;
 
     [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr h, int id, int mod, int vk);
@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _settings = AppSettings.Load();
+        Loc.Lang = _settings.Language;
 
         SldContrast.ValueChanged += (_, e) => { _settings.Contrast = e.NewValue / 100; LblContrast.Text = $"{_settings.Contrast:F2}"; _settings.Save(); };
         SldSaturation.ValueChanged += (_, e) => { _settings.Saturation = e.NewValue / 100; LblSaturation.Text = $"{_settings.Saturation:F2}"; _settings.Save(); };
@@ -56,6 +57,14 @@ public partial class MainWindow : Window
         TxtHotkey.Text = _settings.Hotkey;
         ChkStartup.IsChecked = _settings.StartWithWindows;
 
+        // Set language combo
+        foreach (ComboBoxItem item in CmbLanguage.Items)
+        {
+            if ((string)item.Tag == _settings.Language) { item.IsSelected = true; break; }
+        }
+
+        ApplyLocalization();
+
         Loaded += (_, _) =>
         {
             var h = new WindowInteropHelper(this).Handle;
@@ -68,6 +77,51 @@ public partial class MainWindow : Window
         };
     }
 
+    private void ApplyLocalization()
+    {
+        Title = Loc.Get("Title");
+        TxtTitle.Text = Loc.Get("Title");
+        BtnCapture.Content = Loc.Get("CaptureBtn");
+        ExpHotkey.Header = Loc.Get("HotkeyGroup");
+        ExpAdjust.Header = Loc.Get("AdjustGroup");
+        LblContrastName.Text = Loc.Get("Contrast");
+        LblSaturationName.Text = Loc.Get("Saturation");
+        LblBrightnessName.Text = Loc.Get("Brightness");
+        LblGammaName.Text = Loc.Get("Gamma");
+        BtnReset.Content = Loc.Get("Reset");
+        ChkStartup.Content = Loc.Get("Startup");
+        BtnSetHotkey.Content = Loc.Get("SetHotkey");
+        LblLanguage.Text = Loc.Get("Language") + ":";
+        LblHotkeyHint.Text = Loc.Get("HotkeyHint");
+        if (!_waitingForHotkey) TxtHotkey.Text = _settings.Hotkey;
+    }
+
+    private void UpdateTrayTip()
+    {
+        if (_trayIcon == null || _hwndSource == null) return;
+        var nid = new NOTIFYICONDATA
+        {
+            cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
+            hWnd = _hwndSource.Handle, uID = 1,
+            uFlags = NIF_TIP,
+            hIcon = _trayIcon.Handle,
+            szTip = Loc.Get("TrayTip")
+        };
+        Shell_NotifyIcon(NIM_MODIFY, ref nid);
+    }
+
+    private void CmbLanguage_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (CmbLanguage.SelectedItem is not ComboBoxItem item) return;
+        var lang = (string)item.Tag;
+        if (lang == _settings.Language) return;
+        _settings.Language = lang;
+        _settings.Save();
+        Loc.Lang = lang;
+        ApplyLocalization();
+        UpdateTrayTip();
+    }
+
     private void CreateTrayIcon()
     {
         _trayIcon = TrayIconFactory.Create();
@@ -78,7 +132,7 @@ public partial class MainWindow : Window
             uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP,
             uCallbackMessage = WM_TRAY,
             hIcon = _trayIcon.Handle,
-            szTip = "HDR Screenshot Tool"
+            szTip = Loc.Get("TrayTip")
         };
         Shell_NotifyIcon(NIM_ADD, ref nid);
     }
@@ -99,10 +153,10 @@ public partial class MainWindow : Window
     private void ShowTrayMenu()
     {
         var menu = new ContextMenu();
-        var cap = new MenuItem { Header = "Capture Region" }; cap.Click += (_, _) => StartCapture(); menu.Items.Add(cap);
-        var show = new MenuItem { Header = "Show Window" }; show.Click += (_, _) => { Show(); WindowState = WindowState.Normal; Activate(); }; menu.Items.Add(show);
+        var cap = new MenuItem { Header = Loc.Get("TrayCapture") }; cap.Click += (_, _) => StartCapture(); menu.Items.Add(cap);
+        var show = new MenuItem { Header = Loc.Get("TrayShow") }; show.Click += (_, _) => { Show(); WindowState = WindowState.Normal; Activate(); }; menu.Items.Add(show);
         menu.Items.Add(new Separator());
-        var exit = new MenuItem { Header = "Exit" }; exit.Click += (_, _) => { _forceClose = true; Close(); }; menu.Items.Add(exit);
+        var exit = new MenuItem { Header = Loc.Get("TrayExit") }; exit.Click += (_, _) => { _forceClose = true; Close(); }; menu.Items.Add(exit);
         menu.IsOpen = true;
     }
 
@@ -113,7 +167,14 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized) Hide();
     }
 
-    private void SetHotkey_Click(object sender, RoutedEventArgs e) { _waitingForHotkey = true; TxtHotkey.Text = "Press keys..."; TxtHotkey.Background = Brushes.LightYellow; LblHotkeyHint.Text = "Press key combo"; TxtHotkey.Focus(); }
+    private void SetHotkey_Click(object sender, RoutedEventArgs e)
+    {
+        _waitingForHotkey = true;
+        TxtHotkey.Text = Loc.Get("HotkeyPrompt");
+        TxtHotkey.Background = Brushes.LightYellow;
+        LblHotkeyHint.Text = Loc.Get("HotkeyPrompt");
+        TxtHotkey.Focus();
+    }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
@@ -134,7 +195,8 @@ public partial class MainWindow : Window
         if ((mod & MOD_ALT) != 0) parts.Add("Alt");
         if ((mod & MOD_WIN) != 0) parts.Add("Win");
         parts.Add(key.ToString());
-        TxtHotkey.Text = string.Join("+", parts); TxtHotkey.Background = Brushes.White; LblHotkeyHint.Text = "Hotkey set";
+        TxtHotkey.Text = string.Join("+", parts); TxtHotkey.Background = Brushes.White;
+        LblHotkeyHint.Text = Loc.Get("HotkeySet");
         _settings.Hotkey = TxtHotkey.Text; _settings.Save();
         ParseAndRegisterHotkey(TxtHotkey.Text);
     }
@@ -157,7 +219,13 @@ public partial class MainWindow : Window
         RegisterHotKey(_hwndSource.Handle, _hotkeyId, mod, vk);
     }
 
-    private void ResetSettings_Click(object sender, RoutedEventArgs e) { _settings = new AppSettings(); _settings.Save(); SldContrast.Value = 100; SldSaturation.Value = 100; SldBrightness.Value = 0; SldGamma.Value = 100; }
+    private void ResetSettings_Click(object sender, RoutedEventArgs e)
+    {
+        _settings = new AppSettings(); _settings.Save();
+        SldContrast.Value = 100; SldSaturation.Value = 100;
+        SldBrightness.Value = 0; SldGamma.Value = 100;
+    }
+
     private void BtnCapture_Click(object sender, RoutedEventArgs e) => StartCapture();
     private void Minimize_Click(object sender, RoutedEventArgs e) => Hide();
 
@@ -202,7 +270,7 @@ public partial class MainWindow : Window
             overlay.Show();
             overlay.Activate();
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Error"); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, Loc.Get("Error")); }
     }
 
     private async void OnCaptureRequested(object? sender, CaptureEventArgs e)
@@ -213,7 +281,7 @@ public partial class MainWindow : Window
 
         try
         {
-            TxtStatus.Text = "Capturing...";
+            TxtStatus.Text = Loc.Get("Capturing");
             byte[] px; int w, h;
             if (_capture?.IsInitialized == true)
             {
@@ -226,10 +294,8 @@ public partial class MainWindow : Window
                 px = r.pixels; w = r.w; h = r.h;
             }
 
-            // Apply image adjustments
             Apply(px, w, h);
 
-            // Render annotations
             if (e.Strokes.Count > 0)
             {
                 double sx = e.PhysicalRegion.Width / e.WpfRegion.Width;
@@ -237,7 +303,6 @@ public partial class MainWindow : Window
                 RenderStrokes(px, w, h, e.Strokes, sx, sy);
             }
 
-            // Create bitmap
             var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
             bmp.WritePixels(new Int32Rect(0, 0, w, h), px, w * 4, 0);
 
@@ -246,31 +311,28 @@ public partial class MainWindow : Window
                 using var s = File.Create(file);
                 new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
                 Clipboard.SetImage(bmp);
-                TxtStatus.Text = $"OK {w}x{h} saved";
+                TxtStatus.Text = $"OK {w}x{h} {Loc.Get("Saved")}";
             }
-            else // Pin
+            else
             {
                 using var s = File.Create(file);
                 new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
 
-                // Display size = WPF logical size
                 double dpyW = e.WpfRegion.Width;
                 double dpyH = e.WpfRegion.Height;
-                // Screen position from physical coords scaled to WPF DIPs
                 double sx = e.PhysicalRegion.Width > 1 ? e.WpfRegion.Width / e.PhysicalRegion.Width : 1;
                 double sy = e.PhysicalRegion.Height > 1 ? e.WpfRegion.Height / e.PhysicalRegion.Height : 1;
                 double posX = e.PhysicalRegion.X * sx;
                 double posY = e.PhysicalRegion.Y * sy;
-                // Adjust display size in case capture clamped to monitor edge
                 dpyW = dpyW * w / Math.Max(1, e.PhysicalRegion.Width);
                 dpyH = dpyH * h / Math.Max(1, e.PhysicalRegion.Height);
 
                 var pinWin = new PinnedImageWindow(px, w, h, dpyW, dpyH, posX, posY);
                 pinWin.Show();
-                TxtStatus.Text = $"Pinned {w}x{h}";
+                TxtStatus.Text = $"{Loc.Get("Pinned")} {w}x{h}";
             }
         }
-        catch (Exception ex) { TxtStatus.Text = $"Error: {ex.Message}"; MessageBox.Show(ex.Message, "Error"); }
+        catch (Exception ex) { TxtStatus.Text = $"{Loc.Get("Error")}: {ex.Message}"; MessageBox.Show(ex.Message, Loc.Get("Error")); }
     }
 
     private static void RenderStrokes(byte[] pixels, int w, int h, List<StrokeData> strokes, double scaleX, double scaleY)
@@ -305,8 +367,6 @@ public partial class MainWindow : Window
         bmp.UnlockBits(data);
     }
 
-    // ── Image adjustments ──
-
     private void Apply(byte[] p, int w, int h)
     {
         double c = _settings.Contrast, sat = _settings.Saturation, b = _settings.Brightness, g = _settings.Gamma;
@@ -328,8 +388,6 @@ public partial class MainWindow : Window
         var px = new byte[w * h * 4]; Marshal.Copy(d.Scan0, px, 0, px.Length); bmp.UnlockBits(d);
         return (px, w, h);
     }
-
-    // ── Cleanup ──
 
     protected override void OnClosed(EventArgs e)
     {
