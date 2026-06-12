@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True"
-        ShowInTaskbar="False" Cursor="Cross"
+        ShowInTaskbar="False"
         WindowStartupLocation="Manual" ResizeMode="NoResize">
-    <Canvas x:Name="OverlayCanvas" Background="Transparent" />
+    <Canvas x:Name="OverlayCanvas" Background="Transparent" ClipToBounds="True" />
 </Window>
