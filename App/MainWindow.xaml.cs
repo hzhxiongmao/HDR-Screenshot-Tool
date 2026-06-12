@@ -78,33 +78,8 @@ public partial class MainWindow : Window
             ParseAndRegisterHotkey(_settings.Hotkey);
             try { _capture = new NativeCaptureService(); Title = _capture.IsInitialized ? "HDR Screenshot - WGC" : "HDR - GDI+"; TxtStatus.Text = _capture.GetDebugInfo(); }
             catch (Exception ex) { TxtStatus.Text = $"Init: {ex.Message}"; }
-
-            _ = FetchStatsAsync();
         };
     }
-
-    private async Task FetchStatsAsync()
-    {
-        LblStatsError.Visibility = Visibility.Collapsed;
-        BtnRefreshStats.IsEnabled = false;
-        BtnRefreshStats.Content = Loc.Get("Loading");
-        var stats = await GitHubStatsService.FetchAsync();
-        BtnRefreshStats.IsEnabled = true;
-        BtnRefreshStats.Content = Loc.Get("Refresh");
-
-        if (stats.Error != null)
-        {
-            LblStatsError.Text = $"{Loc.Get("FetchError")}: {stats.Error}";
-            LblStatsError.Visibility = Visibility.Visible;
-            return;
-        }
-        LblStatsStars.Text = $"⭐ {Loc.Get("Stars")}: {stats.Stars:N0}";
-        LblStatsForks.Text = $"⑂ {Loc.Get("Forks")}: {stats.Forks:N0}";
-        LblStatsDownloads.Text = $"⬇ {Loc.Get("Downloads")}: {stats.TotalDownloads:N0}";
-        LblStatsIssues.Text = $"🐛 {Loc.Get("Issues")}: {stats.OpenIssues:N0}";
-    }
-
-    private void BtnRefreshStats_Click(object sender, RoutedEventArgs e) => _ = FetchStatsAsync();
 
     private void ApplyLocalization()
     {
@@ -127,8 +102,6 @@ public partial class MainWindow : Window
         BtnOpen.Content = Loc.Get("Open");
         ChkSaveToFile.Content = Loc.Get("SaveToFile");
         ChkCopyToClipboard.Content = Loc.Get("CopyToClipboard");
-        ExpRepoStats.Header = Loc.Get("RepoStats");
-        BtnRefreshStats.Content = Loc.Get("Refresh");
         if (!_waitingForHotkey) TxtHotkey.Text = _settings.Hotkey;
     }
 

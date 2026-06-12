@@ -105,28 +105,6 @@
                     </ComboBox>
                 </StackPanel>
 
-                <!-- Repo Stats -->
-                <Expander x:Name="ExpRepoStats" Header="Repository Stats" IsExpanded="False"
-                          Margin="0,6,0,0" FontSize="12">
-                    <StackPanel Margin="0,5,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock x:Name="LblStatsStars" Text="Stars: --" FontSize="11" Margin="0,2,0,0"/>
-                                <TextBlock x:Name="LblStatsForks" Text="Forks: --" FontSize="11" Margin="0,2,0,0"/>
-                                <TextBlock x:Name="LblStatsDownloads" Text="Downloads: --" FontSize="11" Margin="0,2,0,0"/>
-                                <TextBlock x:Name="LblStatsIssues" Text="Issues: --" FontSize="11" Margin="0,2,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock x:Name="LblStatsError" FontSize="10" Foreground="Red"
-                                   Visibility="Collapsed" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                        <Button x:Name="BtnRefreshStats" Content="Refresh" Width="70" Height="26"
-                                FontSize="11" Margin="0,5,0,0" Click="BtnRefreshStats_Click"/>
-                    </StackPanel>
-                </Expander>
-
                 <CheckBox x:Name="ChkStartup" Content="Start with Windows"
                           FontSize="11" Margin="10,10,0,0" HorizontalAlignment="Center"
                           Checked="ChkStartup_Changed" Unchecked="ChkStartup_Changed"/>

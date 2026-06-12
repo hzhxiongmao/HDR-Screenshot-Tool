@@ -37,14 +37,6 @@ public static class Loc
         ["Open"] = ("Open", "打开"),
         ["SaveToFile"] = ("Save to file", "保存到文件"),
         ["CopyToClipboard"] = ("Copy to clipboard", "复制到剪贴板"),
-        ["RepoStats"] = ("Repository Stats", "仓库统计"),
-        ["Stars"] = ("Stars", "星标"),
-        ["Forks"] = ("Forks", "复刻"),
-        ["Downloads"] = ("Downloads", "下载量"),
-        ["Issues"] = ("Open Issues", "开放议题"),
-        ["Refresh"] = ("Refresh", "刷新"),
-        ["Loading"] = ("Loading...", "加载中..."),
-        ["FetchError"] = ("Network error", "网络错误"),
     };
 
     public static string Lang { get; set; } = "en";
