@@ -73,7 +73,7 @@
                            Margin="10,10,0,2"/>
                 <Grid Margin="10,0,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="TxtSaveFolder" FontSize="11"
                              VerticalContentAlignment="Center" Height="26"
@@ -81,6 +81,8 @@
                              LostFocus="TxtSaveFolder_LostFocus"/>
                     <Button Grid.Column="1" x:Name="BtnBrowse" Content="Browse..." Width="60"
                             Height="26" FontSize="11" Margin="5,0,0,0" Click="BtnBrowse_Click"/>
+                    <Button Grid.Column="2" x:Name="BtnOpen" Content="Open" Width="45"
+                            Height="26" FontSize="11" Margin="5,0,0,0" Click="BtnOpen_Click"/>
                 </Grid>
 
                 <!-- Save options -->
