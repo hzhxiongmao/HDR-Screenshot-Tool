@@ -1,0 +1,5 @@
+EXPORTS
+    CaptureInitialize
+    CaptureScreen
+    CaptureFreePixels
+    CaptureShutdown
