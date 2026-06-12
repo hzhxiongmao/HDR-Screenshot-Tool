@@ -7,6 +7,9 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Drawing = System.Drawing;
+using Drawing2D = System.Drawing.Drawing2D;
+using DrawingImaging = System.Drawing.Imaging;
 
 namespace HDRScreenshotTool;
 
@@ -17,7 +20,7 @@ public partial class MainWindow : Window
     private int _hotkeyId = 1;
     private bool _waitingForHotkey;
     private AppSettings _settings = null!;
-    private System.Drawing.Icon? _trayIcon;
+    private Drawing.Icon? _trayIcon;
     private bool _forceClose;
 
     private const int WM_HOTKEY = 0x0312, WM_TRAY = 0x8000;
@@ -103,17 +106,11 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
-    private void Window_Closing(object sender, CancelEventArgs e)
-    {
-        if (_forceClose) return;
-        e.Cancel = true;
-        Hide();
-    }
+    private void Window_Closing(object sender, CancelEventArgs e) { if (!_forceClose) { e.Cancel = true; Hide(); } }
 
     private void Window_StateChanged(object sender, EventArgs e)
     {
-        if (WindowState == WindowState.Minimized)
-            Hide();
+        if (WindowState == WindowState.Minimized) Hide();
     }
 
     private void SetHotkey_Click(object sender, RoutedEventArgs e) { _waitingForHotkey = true; TxtHotkey.Text = "Press keys..."; TxtHotkey.Background = Brushes.LightYellow; LblHotkeyHint.Text = "Press key combo"; TxtHotkey.Focus(); }
@@ -147,7 +144,8 @@ public partial class MainWindow : Window
         if (_hwndSource == null) return;
         int mod = 0; var parts = hotkeyStr.Split('+').Select(p => p.Trim()).ToList();
         string keyStr = parts[^1]; parts.RemoveAt(parts.Count - 1);
-        foreach (var p in parts) {
+        foreach (var p in parts)
+        {
             if (p.Equals("Ctrl", StringComparison.OrdinalIgnoreCase)) mod |= MOD_CTRL;
             else if (p.Equals("Shift", StringComparison.OrdinalIgnoreCase)) mod |= MOD_SHIFT;
             else if (p.Equals("Alt", StringComparison.OrdinalIgnoreCase)) mod |= MOD_ALT;
@@ -175,7 +173,6 @@ public partial class MainWindow : Window
         var startupDir = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
         var shortcutPath = Path.Combine(startupDir, "HDRScreenshotTool.lnk");
         var exePath = Environment.ProcessPath!;
-
         try
         {
             if (enable)
@@ -188,38 +185,116 @@ public partial class MainWindow : Window
                 shortcut.Description = "HDR Screenshot Tool";
                 shortcut.Save();
             }
-            else
-            {
-                if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
-            }
+            else { if (File.Exists(shortcutPath)) File.Delete(shortcutPath); }
         }
         catch { }
     }
 
+    // ── Capture flow ──
+
     private void StartCapture()
     {
         if (CaptureOverlay.IsOpen) return;
-        try { var o = new CaptureOverlay(); o.RegionCaptured += OnRegionCaptured; o.Show(); o.Activate(); } catch (Exception ex) { MessageBox.Show(ex.Message, "Error"); }
+        try
+        {
+            var overlay = new CaptureOverlay();
+            overlay.CaptureRequested += OnCaptureRequested;
+            overlay.Show();
+            overlay.Activate();
+        }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "Error"); }
     }
 
-    private async void OnRegionCaptured(object? sender, RegionCapturedEventArgs e)
+    private async void OnCaptureRequested(object? sender, CaptureEventArgs e)
     {
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Screenshots");
         Directory.CreateDirectory(dir);
         var file = Path.Combine(dir, $"shot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+
         try
         {
             TxtStatus.Text = "Capturing...";
             byte[] px; int w, h;
-            if (_capture?.IsInitialized == true) { var r = await Task.Run(() => _capture.Capture(e.PhysicalRegion, e.MonitorHandle)); px = r.pixels; w = r.w; h = r.h; }
-            else { var r = await Task.Run(() => FbGdi(e.PhysicalRegion)); px = r.pixels; w = r.w; h = r.h; }
+            if (_capture?.IsInitialized == true)
+            {
+                var r = await Task.Run(() => _capture.Capture(e.PhysicalRegion, e.MonitorHandle));
+                px = r.pixels; w = r.w; h = r.h;
+            }
+            else
+            {
+                var r = await Task.Run(() => FbGdi(e.PhysicalRegion));
+                px = r.pixels; w = r.w; h = r.h;
+            }
+
+            // Apply image adjustments
             Apply(px, w, h);
-            var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null); bmp.WritePixels(new Int32Rect(0, 0, w, h), px, w * 4, 0);
-            using var s = File.Create(file); new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
-            Clipboard.SetImage(bmp); TxtStatus.Text = $"OK {w}x{h} saved";
+
+            // Render annotations
+            if (e.Strokes.Count > 0)
+            {
+                double sx = e.PhysicalRegion.Width / e.WpfRegion.Width;
+                double sy = e.PhysicalRegion.Height / e.WpfRegion.Height;
+                RenderStrokes(px, w, h, e.Strokes, sx, sy);
+            }
+
+            // Create bitmap
+            var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
+            bmp.WritePixels(new Int32Rect(0, 0, w, h), px, w * 4, 0);
+
+            if (e.Mode == CaptureMode.Save)
+            {
+                using var s = File.Create(file);
+                new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
+                Clipboard.SetImage(bmp);
+                TxtStatus.Text = $"OK {w}x{h} saved";
+            }
+            else // Pin
+            {
+                // Also save to disk
+                using var s = File.Create(file);
+                new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
+
+                var pinWin = new PinnedImageWindow(px, w, h);
+                pinWin.Show();
+                TxtStatus.Text = $"Pinned {w}x{h}";
+            }
         }
         catch (Exception ex) { TxtStatus.Text = $"Error: {ex.Message}"; MessageBox.Show(ex.Message, "Error"); }
     }
+
+    private static void RenderStrokes(byte[] pixels, int w, int h, List<StrokeData> strokes, double scaleX, double scaleY)
+    {
+        using var bmp = new Drawing.Bitmap(w, h, DrawingImaging.PixelFormat.Format32bppArgb);
+        var data = bmp.LockBits(new Drawing.Rectangle(0, 0, w, h), DrawingImaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+        Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+        bmp.UnlockBits(data);
+
+        using var g = Drawing.Graphics.FromImage(bmp);
+        g.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias;
+
+        foreach (var stroke in strokes)
+        {
+            if (stroke.Points.Count < 2) continue;
+            uint c = stroke.Color;
+            var penColor = Drawing.Color.FromArgb((int)(c >> 24), (int)((c >> 16) & 0xFF), (int)((c >> 8) & 0xFF), (int)(c & 0xFF));
+            using var pen = new Drawing.Pen(penColor, (float)(stroke.Thickness * Math.Min(scaleX, scaleY)))
+            {
+                StartCap = Drawing2D.LineCap.Round, EndCap = Drawing2D.LineCap.Round, LineJoin = Drawing2D.LineJoin.Round
+            };
+
+            var pts = stroke.Points.Select(p => new Drawing.PointF((float)(p.X * scaleX), (float)(p.Y * scaleY))).ToArray();
+            if (pts.Length == 2)
+                g.DrawLine(pen, pts[0], pts[1]);
+            else
+                g.DrawLines(pen, pts);
+        }
+
+        data = bmp.LockBits(new Drawing.Rectangle(0, 0, w, h), DrawingImaging.ImageLockMode.ReadOnly, bmp.PixelFormat);
+        Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
+        bmp.UnlockBits(data);
+    }
+
+    // ── Image adjustments ──
 
     private void Apply(byte[] p, int w, int h)
     {
@@ -227,21 +302,23 @@ public partial class MainWindow : Window
         if (Math.Abs(c - 1) < 0.001 && Math.Abs(sat - 1) < 0.001 && Math.Abs(b) < 0.001 && Math.Abs(g - 1) < 0.001) return;
         var L = new byte[256];
         for (int i = 0; i < 256; i++) { double v = Math.Pow(Math.Clamp(i / 255.0, 0, 1), g); v = Math.Clamp((v - 0.5) * c + 0.5 + b / 255, 0, 1); L[i] = (byte)(v * 255); }
-        for (int i = 0; i < p.Length; i += 4) { byte B = L[p[i]], G = L[p[i + 1]], R = L[p[i + 2]];
-            if (Math.Abs(sat - 1) > 0.001) { double gr = 0.299 * R + 0.587 * G + 0.114 * B; R = (byte)Math.Clamp(gr + (R - gr) * sat, 0, 255); G = (byte)Math.Clamp(gr + (G - gr) * sat, 0, 255); B = (byte)Math.Clamp(gr + (B - gr) * sat, 0, 255); }
-            p[i] = B; p[i + 1] = G; p[i + 2] = R; }
+        for (int i = 0; i < p.Length; i += 4) { byte Bb = L[p[i]], Gg = L[p[i + 1]], Rr = L[p[i + 2]];
+            if (Math.Abs(sat - 1) > 0.001) { double gr = 0.299 * Rr + 0.587 * Gg + 0.114 * Bb; Rr = (byte)Math.Clamp(gr + (Rr - gr) * sat, 0, 255); Gg = (byte)Math.Clamp(gr + (Gg - gr) * sat, 0, 255); Bb = (byte)Math.Clamp(gr + (Bb - gr) * sat, 0, 255); }
+            p[i] = Bb; p[i + 1] = Gg; p[i + 2] = Rr; }
     }
 
     private static (byte[] pixels, int w, int h) FbGdi(System.Windows.Rect r)
     {
         int x = (int)r.Left, y = (int)r.Top, w = (int)r.Width, h = (int)r.Height;
-        using var bmp = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var gfx = System.Drawing.Graphics.FromImage(bmp);
-        gfx.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h), System.Drawing.CopyPixelOperation.SourceCopy);
-        var d = bmp.LockBits(new System.Drawing.Rectangle(0, 0, w, h), System.Drawing.Imaging.ImageLockMode.ReadOnly, bmp.PixelFormat);
+        using var bmp = new Drawing.Bitmap(w, h, DrawingImaging.PixelFormat.Format32bppArgb);
+        using var gfx = Drawing.Graphics.FromImage(bmp);
+        gfx.CopyFromScreen(x, y, 0, 0, new Drawing.Size(w, h), Drawing.CopyPixelOperation.SourceCopy);
+        var d = bmp.LockBits(new Drawing.Rectangle(0, 0, w, h), DrawingImaging.ImageLockMode.ReadOnly, bmp.PixelFormat);
         var px = new byte[w * h * 4]; Marshal.Copy(d.Scan0, px, 0, px.Length); bmp.UnlockBits(d);
         return (px, w, h);
     }
+
+    // ── Cleanup ──
 
     protected override void OnClosed(EventArgs e)
     {
