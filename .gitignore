@@ -5,6 +5,11 @@ x64/
 Debug/
 Release/
 
+# Release packaging
+publish/
+publish-sc/
+*.zip
+
 # Binary dependencies (rebuild from NativeCapture/)
 *.dll
 
