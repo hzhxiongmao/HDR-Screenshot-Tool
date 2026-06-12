@@ -2,6 +2,8 @@
 
 A Windows desktop screenshot tool that properly captures **HDR monitor content** using the Windows Graphics Capture API, with annotation tools and pin-to-desktop capability.
 
+[中文版](README_zh.md)
+
 ![](https://img.shields.io/badge/platform-Windows%2010%2B-blue)
 ![](https://img.shields.io/badge/.NET-10.0-purple)
 ![](https://img.shields.io/badge/language-C%23%20%2B%20C%2B%2B-orange)
@@ -16,39 +18,34 @@ A Windows desktop screenshot tool that properly captures **HDR monitor content**
 - **Image adjustments** — Contrast, saturation, brightness, gamma sliders with real-time preview
 - **System tray** — Minimizes to tray, runs in background
 - **Auto-start** — Optional "Start with Windows"
-- **Bilingual UI** — English / Chinese (中文) toggle
+- **Bilingual UI** — English / Chinese toggle
 - **Configurable output** — Choose save folder, toggle file save and clipboard copy independently
 
 ## Screenshots
 
 *[Add screenshots here]*
 
-## Prerequisites
+## Download
 
-### To run
-- Windows 10 version 19041 (20H1) or later
-- .NET 10.0 Desktop Runtime
+Go to the [Releases](https://github.com/hzhxiongmao/HDR-Screenshot-Tool/releases) page, download `HDRScreenshotTool_v1.0.zip`, unzip and run `HDRScreenshotTool.exe`.
+
+## Prerequisites (for building from source)
+
+### To run the pre-built release
+- Windows 10 version 19041 (20H1) or later, 64-bit
+- No .NET installation required (self-contained)
 
 ### To build
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/) with:
-  - **Desktop development with C++** workload
-  - **C++/WinRT** component (install via Visual Studio Installer → Individual components → "C++/WinRT")
-- Windows 10 SDK (10.0.19041.0 or later)
+- [Visual Studio 2022](https://visualstudio.microsoft.com/) with **Desktop development with C++** and **C++/WinRT** component
+- Windows 10 SDK (10.0.19041.0+)
 
 ## Build
 
 ### 1. Build the native capture DLL
 
-Open `NativeCapture/NativeCapture.vcxproj` in Visual Studio 2022 and build in **Release | x64** configuration.
-
-Or via command line:
 ```powershell
 msbuild NativeCapture/NativeCapture.vcxproj /p:Configuration=Release /p:Platform=x64
-```
-
-Copy `NativeCapture.dll` to the `App/` directory:
-```powershell
 copy NativeCapture\x64\Release\NativeCapture.dll App\
 ```
 
@@ -57,14 +54,6 @@ copy NativeCapture\x64\Release\NativeCapture.dll App\
 ```powershell
 cd App
 dotnet build -c Release
-```
-
-The output will be in `App/bin/Release/net10.0-windows10.0.19041.0/`.
-
-### 3. Run
-
-```powershell
-dotnet run -c Release
 ```
 
 ## Project Structure
