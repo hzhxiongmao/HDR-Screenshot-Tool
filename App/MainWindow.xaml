@@ -109,6 +109,10 @@
                           FontSize="11" Margin="10,10,0,0" HorizontalAlignment="Center"
                           Checked="ChkStartup_Changed" Unchecked="ChkStartup_Changed"/>
 
+                <TextBlock Text="XiongMao" FontSize="10" Foreground="#999999"
+                           HorizontalAlignment="Center" Margin="0,10,0,0"
+                           FontStyle="Italic"/>
+
                 <TextBlock x:Name="TxtStatus" Text="Ready" FontSize="11" Foreground="Gray"
                            HorizontalAlignment="Center" Margin="0,10,0,5"
                            TextWrapping="Wrap" TextAlignment="Center"/>
