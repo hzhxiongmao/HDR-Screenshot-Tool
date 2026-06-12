@@ -1,6 +1,6 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -10,133 +10,104 @@ namespace HDRScreenshotTool;
 public partial class PinnedImageWindow : Window
 {
     private double _scale = 1.0;
-    private double _origW, _origH;
+    private double _baseW, _baseH;
     private const double MinScale = 0.15;
     private const double MaxScale = 4.0;
 
-    public PinnedImageWindow(byte[] pixels, int w, int h)
+    [DllImport("user32.dll")] static extern short GetKeyState(int key);
+    private const int VK_CONTROL = 0x11;
+
+    public PinnedImageWindow(byte[] pixels, int pixelW, int pixelH, double displayW, double displayH)
     {
         InitializeComponent();
-        _origW = w; _origH = h;
 
-        var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
-        bmp.WritePixels(new Int32Rect(0, 0, w, h), pixels, w * 4, 0);
+        var bmp = new WriteableBitmap(pixelW, pixelH, 96, 96, PixelFormats.Bgra32, null);
+        bmp.WritePixels(new Int32Rect(0, 0, pixelW, pixelH), pixels, pixelW * 4, 0);
         ImgPinned.Source = bmp;
 
-        // Cap initial size to 55% of primary screen
+        // Use the display size (WPF logical) as the base window size,
+        // so the pinned image appears at the same visual size as the selection.
+        _baseW = displayW;
+        _baseH = displayH;
+
         var screen = SystemParameters.WorkArea;
-        double maxW = screen.Width * 0.55;
-        double maxH = screen.Height * 0.55;
-        if (w > maxW || h > maxH)
+        double maxW = screen.Width * 0.7;
+        double maxH = screen.Height * 0.7;
+        if (_baseW > maxW || _baseH > maxH)
         {
-            double ratio = Math.Min(maxW / w, maxH / h);
+            double ratio = Math.Min(maxW / _baseW, maxH / _baseH);
             _scale = ratio;
-            Width = w * ratio;
-            Height = h * ratio;
-        }
-        else
-        {
-            Width = w;
-            Height = h;
         }
 
-        // Position at bottom-right of screen
-        Left = screen.Right - Width - 40;
-        Top = screen.Bottom - Height - 40;
+        Width = _baseW * _scale;
+        Height = _baseH * _scale;
 
-        // Allow window to go very small
+        // Position near where the selection was, but offset slightly
+        Left = Math.Max(0, screen.Right - Width - 60);
+        Top = Math.Max(0, screen.Bottom - Height - 60);
+
         MinWidth = 60;
         MinHeight = 40;
         MaxWidth = screen.Width;
         MaxHeight = screen.Height;
     }
 
-    private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
         {
-            // Double-click: reset to original size
             _scale = 1.0;
-            Width = _origW;
-            Height = _origH;
+            Width = _baseW;
+            Height = _baseH;
             return;
         }
         if (e.LeftButton == MouseButtonState.Pressed)
             DragMove();
     }
 
-    private void Image_MouseWheel(object sender, MouseWheelEventArgs e)
+    private void Grid_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        if (!ctrl) return;
+
         double delta = e.Delta > 0 ? 1.1 : 1 / 1.1;
         _scale = Math.Clamp(_scale * delta, MinScale, MaxScale);
-        Width = _origW * _scale;
-        Height = _origH * _scale;
+        Width = _baseW * _scale;
+        Height = _baseH * _scale;
         e.Handled = true;
     }
 
-    private void Image_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    private void Grid_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var menu = new ContextMenu();
-        var copy = new MenuItem { Header = "Copy to Clipboard" };
-        copy.Click += (_, _) =>
+        Close();
+        e.Handled = true;
+    }
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+            Close();
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
         {
             if (ImgPinned.Source is BitmapSource bs)
                 Clipboard.SetImage(bs);
-        };
-        menu.Items.Add(copy);
-        var save = new MenuItem { Header = "Save As..." };
-        save.Click += (_, _) =>
-        {
-            var dlg = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PNG Image|*.png|JPEG Image|*.jpg|Bitmap|*.bmp",
-                DefaultExt = "png",
-                FileName = $"pinned_{DateTime.Now:yyyyMMdd_HHmmss}.png"
-            };
-            if (dlg.ShowDialog() == true)
-            {
-                var encoder = GetEncoder(dlg.FileName);
-                if (ImgPinned.Source is BitmapSource src)
-                {
-                    encoder.Frames.Add(BitmapFrame.Create(src));
-                    using var fs = File.Create(dlg.FileName);
-                    encoder.Save(fs);
-                }
-            }
-        };
-        menu.Items.Add(save);
-        menu.Items.Add(new Separator());
-        var close = new MenuItem { Header = "Close" };
-        close.Click += (_, _) => Close();
-        menu.Items.Add(close);
-        menu.IsOpen = true;
-        e.Handled = true;
-    }
-
-    private static BitmapEncoder GetEncoder(string path)
-    {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext switch
-        {
-            ".jpg" or ".jpeg" => new JpegBitmapEncoder(),
-            ".bmp" => new BmpBitmapEncoder(),
-            _ => new PngBitmapEncoder()
-        };
-    }
-
-    private void Image_MouseEnter(object sender, MouseEventArgs e)
-    {
-        BtnClose.Visibility = Visibility.Visible;
-    }
-
-    private void Image_MouseLeave(object sender, MouseEventArgs e)
-    {
-        BtnClose.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void BtnClose_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void BtnClose_MouseEnter(object sender, MouseEventArgs e)
+    {
+        BtnClose.Background = new SolidColorBrush(Color.FromRgb(0xCC, 0x33, 0x33));
+        BtnClose.Foreground = Brushes.White;
+    }
+
+    private void BtnClose_MouseLeave(object sender, MouseEventArgs e)
+    {
+        BtnClose.Background = new SolidColorBrush(Color.FromArgb(0x99, 0x33, 0x33, 0x33));
+        BtnClose.Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
     }
 }

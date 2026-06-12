@@ -5,23 +5,23 @@
         Topmost="True" ShowInTaskbar="False"
         Background="Transparent"
         WindowStartupLocation="Manual"
-        ResizeMode="CanResize" SizeToContent="WidthAndHeight">
-    <Grid>
+        ResizeMode="CanResize">
+    <Grid Background="Transparent"
+          MouseLeftButtonDown="Grid_MouseLeftButtonDown"
+          MouseWheel="Grid_MouseWheel"
+          MouseRightButtonUp="Grid_MouseRightButtonUp"
+          KeyDown="Window_KeyDown">
         <Image x:Name="ImgPinned" Stretch="Uniform"
                RenderOptions.BitmapScalingMode="HighQuality"
-               MouseLeftButtonDown="Image_MouseLeftButtonDown"
-               MouseWheel="Image_MouseWheel"
-               MouseRightButtonUp="Image_MouseRightButtonUp"
-               MouseEnter="Image_MouseEnter"
-               MouseLeave="Image_MouseLeave"/>
-        <!-- Close button, shown on hover -->
+               IsHitTestVisible="False"/>
         <Button x:Name="BtnClose" Content="✕"
-                Width="24" Height="24" FontSize="14"
+                Width="26" Height="26" FontSize="14"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="4"
-                Background="#CC333333" Foreground="White"
+                Margin="3"
+                Background="#99333333" Foreground="#CCFFFFFF"
                 BorderThickness="0" Cursor="Hand"
-                Visibility="Collapsed"
-                Click="BtnClose_Click"/>
+                Click="BtnClose_Click"
+                MouseEnter="BtnClose_MouseEnter"
+                MouseLeave="BtnClose_MouseLeave"/>
     </Grid>
 </Window>
