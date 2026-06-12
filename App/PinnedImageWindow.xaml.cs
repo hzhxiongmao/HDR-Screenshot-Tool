@@ -39,7 +39,6 @@ public partial class PinnedImageWindow : Window
         Width = _baseW * _scale;
         Height = _baseH * _scale;
 
-        // Position at the original selection location
         Left = posX;
         Top = posY;
 
@@ -47,10 +46,29 @@ public partial class PinnedImageWindow : Window
         MinHeight = 40;
         MaxWidth = screen.Width;
         MaxHeight = screen.Height;
+
+        Loaded += (_, _) => { Focus(); Activate(); };
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        if (e.Key == Key.Escape)
+        {
+            Close();
+            e.Handled = true;
+        }
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (ImgPinned.Source is BitmapSource bs)
+                Clipboard.SetImage(bs);
+            e.Handled = true;
+        }
     }
 
     private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        Focus();
         if (e.ClickCount == 2)
         {
             _scale = 1.0;
@@ -72,17 +90,6 @@ public partial class PinnedImageWindow : Window
         Width = _baseW * _scale;
         Height = _baseH * _scale;
         e.Handled = true;
-    }
-
-    private void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Escape)
-            Close();
-        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
-        {
-            if (ImgPinned.Source is BitmapSource bs)
-                Clipboard.SetImage(bs);
-        }
     }
 
     private void BtnClose_Click(object sender, RoutedEventArgs e)

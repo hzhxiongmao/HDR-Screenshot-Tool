@@ -5,11 +5,10 @@
         Topmost="True" ShowInTaskbar="False"
         Background="Transparent"
         WindowStartupLocation="Manual"
-        ResizeMode="CanResize">
+        ResizeMode="CanResize" Focusable="True">
     <Grid Background="Transparent"
           MouseLeftButtonDown="Grid_MouseLeftButtonDown"
-          MouseWheel="Grid_MouseWheel"
-          KeyDown="Window_KeyDown">
+          MouseWheel="Grid_MouseWheel">
         <Image x:Name="ImgPinned" Stretch="Uniform"
                RenderOptions.BitmapScalingMode="HighQuality"
                IsHitTestVisible="False"/>
