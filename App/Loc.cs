@@ -32,7 +32,10 @@ public static class Loc
         ["DrawBtn"] = ("✎", "✎"),
         ["CancelBtn"] = ("✘", "✘"),
         ["TrayTip"] = ("HDR Screenshot Tool", "HDR 截图工具"),
-        ["SizeLabel"] = ("{0} x {1}", "{0} x {1}"),
+        ["SaveFolder"] = ("Save to folder", "保存到文件夹"),
+        ["Browse"] = ("Browse...", "浏览..."),
+        ["SaveToFile"] = ("Save to file", "保存到文件"),
+        ["CopyToClipboard"] = ("Copy to clipboard", "复制到剪贴板"),
     };
 
     public static string Lang { get; set; } = "en";

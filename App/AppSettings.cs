@@ -12,6 +12,9 @@ public class AppSettings
     public string Hotkey { get; set; } = "Ctrl+Shift+S";
     public bool StartWithWindows { get; set; } = false;
     public string Language { get; set; } = "en";
+    public string SaveFolder { get; set; } = "";
+    public bool SaveToFile { get; set; } = true;
+    public bool CopyToClipboard { get; set; } = true;
 
     private static readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

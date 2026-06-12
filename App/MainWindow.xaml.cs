@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -56,6 +57,9 @@ public partial class MainWindow : Window
         SldGamma.Value = _settings.Gamma * 100;
         TxtHotkey.Text = _settings.Hotkey;
         ChkStartup.IsChecked = _settings.StartWithWindows;
+        TxtSaveFolder.Text = GetSaveFolder();
+        ChkSaveToFile.IsChecked = _settings.SaveToFile;
+        ChkCopyToClipboard.IsChecked = _settings.CopyToClipboard;
 
         // Set language combo
         foreach (ComboBoxItem item in CmbLanguage.Items)
@@ -93,6 +97,10 @@ public partial class MainWindow : Window
         BtnSetHotkey.Content = Loc.Get("SetHotkey");
         LblLanguage.Text = Loc.Get("Language") + ":";
         LblHotkeyHint.Text = Loc.Get("HotkeyHint");
+        LblSaveFolder.Text = Loc.Get("SaveFolder");
+        BtnBrowse.Content = Loc.Get("Browse");
+        ChkSaveToFile.Content = Loc.Get("SaveToFile");
+        ChkCopyToClipboard.Content = Loc.Get("CopyToClipboard");
         if (!_waitingForHotkey) TxtHotkey.Text = _settings.Hotkey;
     }
 
@@ -224,10 +232,88 @@ public partial class MainWindow : Window
         _settings = new AppSettings(); _settings.Save();
         SldContrast.Value = 100; SldSaturation.Value = 100;
         SldBrightness.Value = 0; SldGamma.Value = 100;
+        TxtSaveFolder.Text = GetDefaultFolder();
+        ChkSaveToFile.IsChecked = true;
+        ChkCopyToClipboard.IsChecked = true;
     }
 
     private void BtnCapture_Click(object sender, RoutedEventArgs e) => StartCapture();
-    private void Minimize_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private static string GetDefaultFolder()
+        => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Screenshots");
+
+    private string GetSaveFolder()
+        => string.IsNullOrEmpty(_settings.SaveFolder) ? GetDefaultFolder() : _settings.SaveFolder;
+
+    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SHBrowseForFolder(ref BROWSEINFO lpbi);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+    private static extern bool SHGetPathFromIDList(IntPtr pidl, StringBuilder pszPath);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct BROWSEINFO
+    {
+        public IntPtr hwndOwner;
+        public IntPtr pidlRoot;
+        public string pszDisplayName;
+        public string lpszTitle;
+        public uint ulFlags;
+        public IntPtr lpfn;
+        public IntPtr lParam;
+        public int iImage;
+    }
+
+    private void TxtSaveFolder_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var text = TxtSaveFolder.Text.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            TxtSaveFolder.Text = GetDefaultFolder();
+            _settings.SaveFolder = "";
+            _settings.Save();
+        }
+        else if (text != _settings.SaveFolder)
+        {
+            _settings.SaveFolder = text;
+            _settings.Save();
+        }
+    }
+
+    private void BtnBrowse_Click(object sender, RoutedEventArgs e)
+    {
+        var initPath = GetSaveFolder();
+        var bi = new BROWSEINFO
+        {
+            hwndOwner = new WindowInteropHelper(this).Handle,
+            lpszTitle = Loc.Lang == "zh" ? "选择保存文件夹" : "Select save folder",
+            ulFlags = 0x00000040 // BIF_NEWDIALOGSTYLE | BIF_RETURNONLYFSDIRS
+        };
+        var pidl = SHBrowseForFolder(ref bi);
+        if (pidl != IntPtr.Zero)
+        {
+            var sb = new StringBuilder(260);
+            if (SHGetPathFromIDList(pidl, sb))
+            {
+                _settings.SaveFolder = sb.ToString();
+                _settings.Save();
+                TxtSaveFolder.Text = sb.ToString();
+            }
+            Marshal.FreeCoTaskMem(pidl);
+        }
+    }
+
+    private void ChkSaveToFile_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.SaveToFile = ChkSaveToFile.IsChecked == true;
+        _settings.Save();
+    }
+
+    private void ChkCopyToClipboard_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.CopyToClipboard = ChkCopyToClipboard.IsChecked == true;
+        _settings.Save();
+    }
 
     private void ChkStartup_Changed(object sender, RoutedEventArgs e)
     {
@@ -275,10 +361,6 @@ public partial class MainWindow : Window
 
     private async void OnCaptureRequested(object? sender, CaptureEventArgs e)
     {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Screenshots");
-        Directory.CreateDirectory(dir);
-        var file = Path.Combine(dir, $"shot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
-
         try
         {
             TxtStatus.Text = Loc.Get("Capturing");
@@ -306,30 +388,39 @@ public partial class MainWindow : Window
             var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
             bmp.WritePixels(new Int32Rect(0, 0, w, h), px, w * 4, 0);
 
-            if (e.Mode == CaptureMode.Save)
+            // Save to file
+            string? file = null;
+            if (_settings.SaveToFile)
             {
+                var dir = GetSaveFolder();
+                Directory.CreateDirectory(dir);
+                file = Path.Combine(dir, $"shot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
                 using var s = File.Create(file);
                 new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
-                Clipboard.SetImage(bmp);
-                TxtStatus.Text = $"OK {w}x{h} {Loc.Get("Saved")}";
             }
-            else
-            {
-                using var s = File.Create(file);
-                new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
 
+            // Copy to clipboard
+            if (_settings.CopyToClipboard)
+                Clipboard.SetImage(bmp);
+
+            if (e.Mode == CaptureMode.Pin)
+            {
                 double dpyW = e.WpfRegion.Width;
                 double dpyH = e.WpfRegion.Height;
-                double sx = e.PhysicalRegion.Width > 1 ? e.WpfRegion.Width / e.PhysicalRegion.Width : 1;
-                double sy = e.PhysicalRegion.Height > 1 ? e.WpfRegion.Height / e.PhysicalRegion.Height : 1;
-                double posX = e.PhysicalRegion.X * sx;
-                double posY = e.PhysicalRegion.Y * sy;
+                double sxd = e.PhysicalRegion.Width > 1 ? e.WpfRegion.Width / e.PhysicalRegion.Width : 1;
+                double syd = e.PhysicalRegion.Height > 1 ? e.WpfRegion.Height / e.PhysicalRegion.Height : 1;
+                double posX = e.PhysicalRegion.X * sxd;
+                double posY = e.PhysicalRegion.Y * syd;
                 dpyW = dpyW * w / Math.Max(1, e.PhysicalRegion.Width);
                 dpyH = dpyH * h / Math.Max(1, e.PhysicalRegion.Height);
 
                 var pinWin = new PinnedImageWindow(px, w, h, dpyW, dpyH, posX, posY);
                 pinWin.Show();
-                TxtStatus.Text = $"{Loc.Get("Pinned")} {w}x{h}";
+                TxtStatus.Text = $"{Loc.Get("Pinned")} {w}x{h}" + (file != null ? "" : "");
+            }
+            else
+            {
+                TxtStatus.Text = $"OK {w}x{h} {(file != null ? Loc.Get("Saved") : "")}";
             }
         }
         catch (Exception ex) { TxtStatus.Text = $"{Loc.Get("Error")}: {ex.Message}"; MessageBox.Show(ex.Message, Loc.Get("Error")); }
