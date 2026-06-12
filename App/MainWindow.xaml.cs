@@ -253,14 +253,19 @@ public partial class MainWindow : Window
                 using var s = File.Create(file);
                 new PngBitmapEncoder { Frames = { BitmapFrame.Create(bmp) } }.Save(s);
 
-                // Display size = WPF logical size (same visual size as selection)
+                // Display size = WPF logical size
                 double dpyW = e.WpfRegion.Width;
                 double dpyH = e.WpfRegion.Height;
-                // Adjust in case capture clamped to monitor edge
-                if (e.PhysicalRegion.Width > 1) dpyW = dpyW * w / e.PhysicalRegion.Width;
-                if (e.PhysicalRegion.Height > 1) dpyH = dpyH * h / e.PhysicalRegion.Height;
+                // Screen position from physical coords scaled to WPF DIPs
+                double sx = e.PhysicalRegion.Width > 1 ? e.WpfRegion.Width / e.PhysicalRegion.Width : 1;
+                double sy = e.PhysicalRegion.Height > 1 ? e.WpfRegion.Height / e.PhysicalRegion.Height : 1;
+                double posX = e.PhysicalRegion.X * sx;
+                double posY = e.PhysicalRegion.Y * sy;
+                // Adjust display size in case capture clamped to monitor edge
+                dpyW = dpyW * w / Math.Max(1, e.PhysicalRegion.Width);
+                dpyH = dpyH * h / Math.Max(1, e.PhysicalRegion.Height);
 
-                var pinWin = new PinnedImageWindow(px, w, h, dpyW, dpyH);
+                var pinWin = new PinnedImageWindow(px, w, h, dpyW, dpyH, posX, posY);
                 pinWin.Show();
                 TxtStatus.Text = $"Pinned {w}x{h}";
             }
