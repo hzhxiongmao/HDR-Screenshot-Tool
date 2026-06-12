@@ -5,6 +5,9 @@ x64/
 Debug/
 Release/
 
+# Binary dependencies (rebuild from NativeCapture/)
+*.dll
+
 # IDE
 .vs/
 *.user
