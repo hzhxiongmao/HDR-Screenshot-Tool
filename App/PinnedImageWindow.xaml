@@ -9,7 +9,6 @@
     <Grid Background="Transparent"
           MouseLeftButtonDown="Grid_MouseLeftButtonDown"
           MouseWheel="Grid_MouseWheel"
-          MouseRightButtonUp="Grid_MouseRightButtonUp"
           KeyDown="Window_KeyDown">
         <Image x:Name="ImgPinned" Stretch="Uniform"
                RenderOptions.BitmapScalingMode="HighQuality"

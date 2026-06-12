@@ -1,4 +1,3 @@
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
@@ -17,7 +16,7 @@ public partial class PinnedImageWindow : Window
     [DllImport("user32.dll")] static extern short GetKeyState(int key);
     private const int VK_CONTROL = 0x11;
 
-    public PinnedImageWindow(byte[] pixels, int pixelW, int pixelH, double displayW, double displayH)
+    public PinnedImageWindow(byte[] pixels, int pixelW, int pixelH, double displayW, double displayH, double posX, double posY)
     {
         InitializeComponent();
 
@@ -25,8 +24,6 @@ public partial class PinnedImageWindow : Window
         bmp.WritePixels(new Int32Rect(0, 0, pixelW, pixelH), pixels, pixelW * 4, 0);
         ImgPinned.Source = bmp;
 
-        // Use the display size (WPF logical) as the base window size,
-        // so the pinned image appears at the same visual size as the selection.
         _baseW = displayW;
         _baseH = displayH;
 
@@ -42,9 +39,9 @@ public partial class PinnedImageWindow : Window
         Width = _baseW * _scale;
         Height = _baseH * _scale;
 
-        // Position near where the selection was, but offset slightly
-        Left = Math.Max(0, screen.Right - Width - 60);
-        Top = Math.Max(0, screen.Bottom - Height - 60);
+        // Position at the original selection location
+        Left = posX;
+        Top = posY;
 
         MinWidth = 60;
         MinHeight = 40;
@@ -74,12 +71,6 @@ public partial class PinnedImageWindow : Window
         _scale = Math.Clamp(_scale * delta, MinScale, MaxScale);
         Width = _baseW * _scale;
         Height = _baseH * _scale;
-        e.Handled = true;
-    }
-
-    private void Grid_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        Close();
         e.Handled = true;
     }
 
